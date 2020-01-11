@@ -1,4 +1,4 @@
-mf.diagnosis.adap=function(x,ET_Main,TL_out,fleet,n.fleet,B.Input,Beta,TopD,FormD,TLpred,n.TL,range.TLpred,lim.high.TL,range.highTL,Fish_mort, Fish_mort_acc){
+mf.diagnosis.logsol.integrated=function(x,ET_Main,TL_out,fleet,n.fleet,B.Input,Beta,TopD,FormD,TLpred,n.TL,range.TLpred,lim.high.TL,range.highTL,Fish_mort, Fish_mort_acc){
   
   #---------------------------------- LOOP -------------------------------------
   
