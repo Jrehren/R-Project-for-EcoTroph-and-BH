@@ -1,22 +1,23 @@
-create.ETdiagnosis.alt_logsol.integrated <- function(data, Mul_eff = NULL, fleet.of.interest = NULL, 
+create.ETdiagnosis.logsol.integrated <- function(data, Mul_eff = NULL, fleet.of.interest = NULL, 
                                same.mE = NULL, B.Input=NULL, Beta = NULL, TopD = NULL, 
-                               FormD = NULL, TLpred = NULL, fleet_names = "catch.1", 
-                               Fish_mort, Fish_mort_acc) 
+                               FormD = NULL, TLpred = NULL, fleet_names = "catch.1", Fish_mort, Fish_mort_acc) 
 { 
 
     ET_Main=data$ET_Main
 
   
-  # 1) Other arguments of the function ----
+  # 1) Other arguments of the function
   TL_out <- as.numeric(rownames(ET_Main))
   names(TL_out)=1:length(TL_out)
   n.TL=length(TL_out)
   
-  # 2) Calculating the number of fleets ----
+  #Initialization
+  
+  # 2) Calculates the number of fleets
   fleet=fleet_names ; n.fleet=length(fleet)
   
-  # 3)  Defining what happens to the arguments of the function, if not ---- 
-  #     defined in the function call. ----
+  # 3)  Defining what happens to the fishing effort multiplier, when the following arguments 
+  #     are not set in the function call. 
   if (is.null(same.mE)){same.mE <- FALSE}                                       
   if(!is.null(fleet.of.interest)){same.mE <- FALSE}
   if (is.null(Mul_eff)){Mul_eff.=list()
@@ -28,6 +29,9 @@ create.ETdiagnosis.alt_logsol.integrated <- function(data, Mul_eff = NULL, fleet
   print(Mul_eff.)
   }
   
+  # 4) Here, it is defined what happens, if the other arguments are not set 
+  #    in function call by the user 
+  
   if (is.null(B.Input)){B.Input <- FALSE}
   if (is.null(Beta)){Beta <- .2}
   if (is.null(TopD)){TopD <- rep(.4,n.TL)}else{if(length(TopD)==1){TopD=rep(TopD,n.TL)}}
@@ -35,8 +39,8 @@ create.ETdiagnosis.alt_logsol.integrated <- function(data, Mul_eff = NULL, fleet
   if (is.null(TLpred)){TLpred <- 3.5}
   
   
-  # 4) Calculating the combination of effort multipliers, either a) using the same ----
-  #    multipliers for all fleets or b) using only fleet of interest. ----
+  # 6) Calculates the combination of effort multipliers, either a) using the same 
+  #    multipliers for all fleets or b) using only fleet of interest.
   if(!same.mE){
     ff=expand.grid(Mul_eff.)
     if(is.null(fleet.of.interest)){
@@ -55,17 +59,18 @@ create.ETdiagnosis.alt_logsol.integrated <- function(data, Mul_eff = NULL, fleet
     print(FF)
   }
   
-  # 6) Setting the final output list of each fishing effort multiplier ----
+  # 7) Setting the final output list of each fishing effort multiplier
   
   FF=unique(FF)
   comb=as.list(FF)
   names(comb)=FF
   
-  # 7) Calculating all TEMPORAL outputs of comb, which are used as input in ----
-  #    the function mf.diagnosis. 
+  # 8) Calculating all TEMPORAL outputs of comb, which are used as input in 
+  #    the function mf.diagnosis. mf.diagnosis contains a conditional while loop, 
+  #    which is used for an iterative solving of the different functions
 
-   ## A) Calculating the new fishing mortalities by multiplying the effort ----
-   #     multiplier with the reference fishing mortality vector ---- 
+  # Fishing mortality and accessible fishing mortality
+
   for(i in 1:length(comb)){
     comb[[i]]=list()
     comb[[i]][['mf']]=as.numeric(unlist(strsplit(names(comb)[i],'_')))
@@ -76,10 +81,9 @@ create.ETdiagnosis.alt_logsol.integrated <- function(data, Mul_eff = NULL, fleet
       if(j==1){ff.=ff}else{ff.=ff.+ff}
     }
     comb[[i]][['Fish_mort']]=ff.
-    comb[[i]][['Fish_mort_acc']]=ff./ET_Main$Selec    # accessible fishing mortality 
+    comb[[i]][['Fish_mort_acc']]=ff./ET_Main$Selec
     
-   ## B) Calculating a starting vector for the Kinetics and accessible kinetics ----
-    #    to initiate the iterative solving in the mf.diagnosis function. ----
+    # Kinetics and accessible kinetics
     comb[[i]][['TEMP_Kin']]=ET_Main[,'Kin']-ET_Main[,'Fish_mort']+comb[[i]][['Fish_mort']]
     comb[[i]][['TEMP_Kin_acc']]=ET_Main[,'Kin_acc']-ET_Main[,'Fish_mort_acc']+comb[[i]][['Fish_mort_acc']]
     comb[[i]][['Kin_MF']]=comb[[i]][['TEMP_Kin']]
@@ -103,7 +107,7 @@ create.ETdiagnosis.alt_logsol.integrated <- function(data, Mul_eff = NULL, fleet
   }
   
   
-  # 8.) CALCULATING OTHER ARGUMENTS NECESSARY FOR THE FOLLOWING MF.DIAGNOSIS ----
+  # 9.) CALCULATING OTHER ARGUMENTS NECESSARY FOR THE FOLLOWING MF.DIAGNOSIS
   tll=names(TL_out[TL_out>=2.8 & TL_out<=3.3])
   range.TLpred=as.numeric(c(tll[1],tll[length(tll)]))-2
   high.tl=abs(TL_out-5.6)
@@ -111,22 +115,13 @@ create.ETdiagnosis.alt_logsol.integrated <- function(data, Mul_eff = NULL, fleet
   tlll=names(TL_out[TL_out>=(TL_out[lim.high.TL]-0.5) & TL_out<=(TL_out[lim.high.TL])])
   range.highTL=as.numeric(c(tlll[1],tlll[length(tlll)]))
   
-  # 9.) RUN THE NORMAL NORMAL MF.DIAGNOSIS ON THE mE=0 AND STORE IT SEPERATELY ----
-  comb0<-comb[["0"]]
-  comb0_res<-mf.diagnosis.logsol.integrated(comb0,ET_Main,TL_out,fleet,n.fleet,B.Input,
-                          Beta,TopD,FormD,TLpred,n.TL,range.TLpred,
-                          lim.high.TL,range.highTL, Fish_mort, Fish_mort_acc)
-
-  Bvirgin_acc=comb0_res$BIOM_MF_acc
-  Bvirgin=comb0_res$BIOM_MF
   
-  # 10.) RUN MF.DIAGNOSIS ON EACH MULTIPLIER OF EFFORT, TO SAY ON EACH ELEMENT OF LIST COMB ----
-  diagn.list=lapply(comb,mf.diagnosis.alt.logsol.integrated,ET_Main,TL_out,fleet,n.fleet,B.Input,
-                    Beta,TopD,FormD,TLpred,n.TL,range.TLpred,lim.high.TL,range.highTL, 
-                    Fish_mort, Fish_mort_acc,
-                    Bvirgin, Bvirgin_acc)
+  # 10.) RUN MF.DIAGNOSIS ON EACH MULTIPLIER OF EFFORT, TO SAY ON EACH ELEMENT OF LIST COMB 
+  diagn.list=lapply(comb,mf.diagnosis.logsol.integrated,ET_Main,TL_out,fleet,n.fleet,B.Input,
+                    Beta,TopD,FormD,TLpred,n.TL,range.TLpred,lim.high.TL,range.highTL, Fish_mort, Fish_mort_acc)
   
-  # 11.) PRODUCE OUTPUT ----
+   # 11.) PRODUCE OUTPUT
+  # mf.diagnosis(comb[[10]],ET_Main,TL_out,fleet,n.fleet,Fish_mort_ref,Fish_mort_acc_ref,Beta,TopD,FormD,TLpred)
   names(diagn.list)=names(comb)
   diagn.list[['fleet.of.interest']]=fleet.of.interest
   class(diagn.list)<-"ETdiagnosis"
