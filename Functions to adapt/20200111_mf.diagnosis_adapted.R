@@ -8,9 +8,10 @@ mf.diagnosis.adapted=function(x,ET_Main,TL_out,fleet,n.fleet,B.Input,Beta,TopD,F
   
   x[['SC']] <- 3
   x[['SC2']] <- 3
+  x[['SC3']] <- 3
   
   It=0
-  while (!((x[['SC2']] < 1e-6) && (x[['SC']] < 1e-6))) {
+  while (!((x[['SC2']] < 1e-6) && (x[['SC']] < 1e-6) && (x[['SC3']] < 1e-6))) {
     
   # 1.) CALCULATING BIOMASS (Gascuel et al., 2011; Equation A8) ----
     x[['BIOM_MF']] <- x[['Prod_MF']]/x[['Kin_MF']] 
@@ -178,19 +179,19 @@ mf.diagnosis.adapted=function(x,ET_Main,TL_out,fleet,n.fleet,B.Input,Beta,TopD,F
   # 5.) CALCULATING THE DIFFERENCE BETWEEN TEMPORAL PRODUCTION AND KINETICS AND----
     #    OUTPUT OF THE ITERATION+1 ----
     # x[['SC2']] <- round((sum(x[['Prod_MF']]) - sum(x[['Prod_MF_TMP']])) * 1E3)
+    # x[['SC']] <- round(sum(x[['Kin_MF']])/sum(x[['TEMP_Kin']]),3)
+    
     x[['SC']] <- abs(1-(sum(x[['Kin_MF']])/sum(x[['TEMP_Kin']])))
     x[['SC2']] <- abs(1-(sum(x[['Prod_MF']])/sum(x[['Prod_MF_TMP']])))
-    # x[['SC']] <- round(sum(x[['Kin_MF']])/sum(x[['TEMP_Kin']]),3)
+    x[['SC3']] <- abs(1-(sum(x[['BIOM_MF']])/sum(x[['TEMP_BIOM_MF']])))
+    
     
     It=It+1
     
     x[['TEMP_Kin']] <- x[['Kin_MF']]
+    x[['TEMP_BIOM_MF']] <- x[['BIOM_MF']]
     
   }  
-  
-  #---------------------------- END OF THE ITERATIONS --------------------------
-  
-  #-------------------------- CALCULATING OTHER OUTPUTS ------------------------
   
   # 1.) EXPLOITATION RATE AND FISHING LOSS RATE----
   x[['E']]=x[['Fish_mort']]/x[['Kin_MF']]
@@ -199,65 +200,9 @@ mf.diagnosis.adapted=function(x,ET_Main,TL_out,fleet,n.fleet,B.Input,Beta,TopD,F
   x[['F_loss']]=-log(1-x[['E']])
   x[['F_loss_acc']]=-log(1-x[['E_acc']])
   
-  # 2.) TOTAL BIOMASS FOR EACH MULTIPLIER ----
-  TOT_B <-sum(x[['BIOM_MF']][-1]) #without TL=1 
-  TOT_B_acc <- sum(x[['BIOM_MF_acc']][-1])#without TL=1
-  
-  # 3.) TOTAL PRODUCTION FOR EACH MULTIPLIER ----
-  Pred_B <- sum(x[['BIOM_MF']][as.numeric(names(TL_out[TL_out>=TLpred]))])
-  TOT_P <- sum(x[['Prod_MF']])  
-  TOT_P_acc <- sum(x[['Prod_MF_acc']]) 
-  Pred_P <- sum(x[['Prod_MF']][as.numeric(names(TL_out[TL_out>=TLpred]))])
-  
-  # 4.) CATCHES PER TROPHIC LEVEL AND FLEET ----
-  Catches <-x[['BIOM_MF_acc']][-1]*x[['Fish_mort_acc']][-1]
-
-  # 5.) TOTAL CATCHES PER TROPHIC LEVEL ----
-  Y <- sum(Catches)
-  Pred_Y <- sum(Catches[as.numeric(names(Catches))%in%TL_out[TL_out>=TLpred]],na.rm=T)
-  
-  # 6.) TOTAL BIOMASS AND TOTAL PRODUCTION RELATIVE TO REFERENCE STATE ----
-  R_TOT_B <- TOT_B/sum(ET_Main[-1,'B'])
-  R_TOT_B_acc <- TOT_B_acc/sum(ET_Main[-1,'B_acc'])
-  R_Pred_B <- Pred_B/sum(ET_Main[as.numeric(names(TL_out[TL_out>=TLpred])),'B'],na.rm=T)
-  R_TOT_P <- TOT_P/sum(ET_Main[,'P'])
-  R_TOT_P_acc <- TOT_P_acc/sum(ET_Main[,'P_acc'])
-  R_Pred_P <- Pred_P/sum(ET_Main[as.numeric(names(TL_out[TL_out>=TLpred])),'P'],na.rm=T)
-  
-  # 7.) TOTAL CATCHES PER TROPHIC LEVEL ----
-    x[['Catches.tot']]=c(0,Catches)
-  names(x[['Catches.tot']])=TL_out
-  
-  
-  # 8.) TROPHIC LEVEL OF BIOMASS AND CATCHES PER MULTIPLIER ----
-  TL_TOT_B <- sum(x[['BIOM_MF']][-1]*TL_out[-1])/TOT_B
-  TL_TOT_B_acc <-sum(x[['BIOM_MF_acc']][-1]*TL_out[-1])/TOT_B_acc 
-  
-    TL_Y<-sum(Catches*TL_out[-1])/Y
-
-  
-  # 9.) TOTAL CATCHES PER TROPHIC LEVEL AND FLEET ----
-  
-  x[['Catches']]=list()
-  for(i in 1:n.fleet){
-    x[['Catches']][[fleet[i]]]=c(0,Catches*x[['mf']][[i]]* Fish_mort[[i]][-1]/x[['Fish_mort']][-1])
-    names(x[['Catches']][[fleet[i]]])=TL_out
-  }
+  #---------------------------- END OF THE ITERATIONS --------------------------
   
 
-
-  #----------------------------- END OF CALCULATIONS ---------------------------
-  
-  #------------------------------- BINDING TO LIST -----------------------------
-  ET_Main_diagnose<- list(TOT_B=TOT_B,TOT_B_acc=TOT_B_acc,Pred_B=Pred_B, 
-                          TOT_P=TOT_P,TOT_P_acc=TOT_P_acc,Pred_P=Pred_P,Y=Y,
-                          Pred_Y=Pred_Y,R_TOT_B=R_TOT_B,R_TOT_B_acc=R_TOT_B_acc,
-                          R_Pred_B=R_Pred_B,R_TOT_P=R_TOT_P,
-                          R_TOT_P_acc=R_TOT_P_acc,R_Pred_P=R_Pred_P,
-                          TL_TOT_B=TL_TOT_B, TL_TOT_B_acc=TL_TOT_B_acc,TL_Y=TL_Y)
-  
-  
-  x[['ET_Main_diagnose']]=ET_Main_diagnose
   return(x)
 }
 
